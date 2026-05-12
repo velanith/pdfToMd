@@ -13,4 +13,5 @@ pyclipper
 albumentations
 ftfy
 omegaconf
+marker-pdf
 tqdm

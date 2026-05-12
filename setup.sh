@@ -51,6 +51,9 @@ fi
 echo "==> Installing MinerU + ML stack"
 pip install -q mineru "transformers<5" accelerate shapely pyclipper albumentations ftfy omegaconf tqdm
 
+echo "==> Installing marker-pdf (alternative engine)"
+pip install -q marker-pdf
+
 # ── verify ────────────────────────────────────────────────────────────────────
 echo "==> Verifying"
 python - <<'PY'
@@ -82,4 +85,5 @@ echo "Setup complete."
 echo ""
 echo "Next:"
 echo "  source $VENV/bin/activate"
-echo "  python -m med2md -i ./papers/ -o ./output/"
+echo "  python -m med2md -i ./papers/ -o ./output/                 # default: mineru"
+echo "  python -m med2md -i ./papers/ -o ./output/ -e marker       # marker-pdf"

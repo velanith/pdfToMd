@@ -1,4 +1,4 @@
-"""Batch orchestration — wires discovery, conversion, and reporting together."""
+"""Batch orchestration — wires discovery, engine, and reporting together."""
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -7,8 +7,9 @@ from logging import Logger
 from pathlib import Path
 
 from .config import Options
-from .converter import ConversionResult, convert_one
-from .discovery import filter_pending, find_mineru_binary, find_pdfs
+from .converter import ConversionResult
+from .discovery import filter_pending, find_pdfs
+from .engines import ConvertFn, get_engine
 from .reporting import build_report, write_failed_log, write_report
 
 
@@ -20,9 +21,6 @@ class BatchOutcome:
 
 def run_batch(opts: Options, log: Logger) -> int:
     """Run a full batch. Returns POSIX-style exit code (0/1/2)."""
-    mineru_bin = find_mineru_binary()
-    log.info(f"mineru CLI: {mineru_bin}")
-
     pdfs = find_pdfs(opts.input_path)
     if not pdfs:
         log.error(f"No PDFs found in: {opts.input_path}")
@@ -31,8 +29,8 @@ def run_batch(opts: Options, log: Logger) -> int:
     opts.output_dir.mkdir(parents=True, exist_ok=True)
     log.info(f"Found {len(pdfs)} PDF(s)  →  output: {opts.output_dir}")
     log.info(
-        f"Backend: {opts.backend}  |  Method: {opts.method}  |  "
-        f"Lang: {opts.lang}  |  Workers: {opts.workers}"
+        f"Engine: {opts.engine}  |  Backend: {opts.backend}  |  "
+        f"Method: {opts.method}  |  Lang: {opts.lang}  |  Workers: {opts.workers}"
     )
 
     pending = pdfs
@@ -44,14 +42,17 @@ def run_batch(opts: Options, log: Logger) -> int:
         log.info("Nothing to do.")
         return 0
 
-    outcome = _process(pending, opts, mineru_bin, log)
+    # Build engine AFTER discovery — avoids loading models if there's nothing to do.
+    convert_fn = get_engine(opts, log)
+
+    outcome = _process(pending, opts, convert_fn, log)
     return _finalize(outcome, opts, log)
 
 
 def _process(
     pending: list[Path],
     opts: Options,
-    mineru_bin: str,
+    convert_fn: ConvertFn,
     log: Logger,
 ) -> BatchOutcome:
     bar = _make_progress_bar(len(pending))
@@ -59,19 +60,25 @@ def _process(
     wall_start = time.time()
 
     def task(pdf: Path) -> ConversionResult:
-        r = convert_one(pdf, opts, mineru_bin)
+        r = convert_fn(pdf)
         _log_result(pdf, r, log)
         if bar is not None:
             bar.update(1)
         return r
 
-    if opts.workers <= 1:
+    # The marker engine shares a single GPU-resident model across calls, so
+    # it must run sequentially. mineru is a subprocess-per-PDF, so threads
+    # are fine — no GIL contention, no spawn-context process pool needed.
+    workers = opts.workers
+    if opts.engine == "marker" and workers > 1:
+        log.warning(f"marker engine is sequential; ignoring -j {workers}")
+        workers = 1
+
+    if workers <= 1:
         for pdf in pending:
             results.append(task(pdf))
     else:
-        # mineru runs in a subprocess, so threads are sufficient — no GIL
-        # contention, no spawn-context process pool needed.
-        with ThreadPoolExecutor(max_workers=opts.workers) as pool:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(task, pdf) for pdf in pending]
             for fut in as_completed(futures):
                 results.append(fut.result())

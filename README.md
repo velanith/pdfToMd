@@ -1,19 +1,31 @@
 # med2md
 
-MinerU ile PDF → Markdown toplu dönüştürücü. Modüler Python package.
+PDF → Markdown toplu dönüştürücü. İki engine destekliyor: **MinerU** (default) ve **marker-pdf**. Modüler Python package.
 
 ## Hızlı başlangıç
 
 ```bash
-# 1. Tek seferlik kurulum (.venv yaratır, torch + mineru + transformers kurar, doğrular)
+# 1. Tek seferlik kurulum (.venv yaratır, torch + mineru + marker kurar, doğrular)
 bash setup.sh
 
 # 2. venv'i aktif et
 source .venv/bin/activate
 
-# 3. Çalıştır
+# 3. Çalıştır (default: mineru)
 python -m med2md -i ./papers/ -o ./output/
+
+# Alternatif engine: marker-pdf
+python -m med2md -i ./papers/ -o ./output/ -e marker
 ```
+
+## Engine seçimi
+
+| Engine | Hız (4090) | Kurulum | Güçlü yan | Zayıf yan |
+|---|---|---|---|---|
+| `mineru` (default) | ~70s/PDF | Çok dep | Karmaşık layout, formül, tablo | Dep yönetimi sızıntılı |
+| `marker` | ~5–15s/PDF | Tek paket | Hızlı, temiz, akademik için iyi | Edge case'lerde mineru kadar derin değil |
+
+`-e mineru` (default) eskiden ne yaptıysa onu yapar — backend/method/lang/workers hepsi geçerli. `-e marker` ise GPU'da model bir kez yüklenir, sıralı işler (paralel değil).
 
 `setup.sh` mevcut bir venv'i de kullanabilir:
 

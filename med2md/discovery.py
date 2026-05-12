@@ -1,23 +1,6 @@
-"""Discovery helpers: locate the mineru CLI and gather input PDFs."""
+"""PDF discovery: turn --input into a concrete list of paths."""
 
-import shutil
-import sys
 from pathlib import Path
-
-
-class MinerUNotFound(RuntimeError):
-    pass
-
-
-def find_mineru_binary() -> str:
-    binary = shutil.which("mineru")
-    if not binary:
-        raise MinerUNotFound(
-            "mineru CLI not found on PATH.\n"
-            "  Run:  bash setup.sh\n"
-            "  Or:   pip install 'mineru[full]' transformers accelerate"
-        )
-    return binary
 
 
 def find_pdfs(input_path: Path) -> list[Path]:

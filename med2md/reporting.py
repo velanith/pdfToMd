@@ -18,6 +18,7 @@ def build_report(
     rate = round(len(ok) / (total_seconds / 60), 1) if total_seconds > 0 else 0.0
     return {
         "timestamp": datetime.now().isoformat(),
+        "engine": opts.engine,
         "backend": opts.backend,
         "method": opts.method,
         "lang": opts.lang,

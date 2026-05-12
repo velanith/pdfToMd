@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+Engine = Literal["mineru", "marker"]
 Backend = Literal["pipeline", "vlm-auto-engine", "hybrid-auto-engine"]
 Method = Literal["auto", "txt", "ocr"]
 
@@ -17,6 +18,7 @@ class Options:
 
     input_path: Path
     output_dir: Path
+    engine: Engine = "mineru"
     backend: Backend = "pipeline"
     method: Method = "auto"
     lang: str = "en"
