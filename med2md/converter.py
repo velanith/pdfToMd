@@ -1,6 +1,7 @@
 """Single-PDF conversion via the mineru CLI."""
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -8,6 +9,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .config import Options
+
+# mineru's pipeline runs on the GPU; the CPU BLAS thread pools are useless
+# overhead and, worse, explode the per-container RLIMIT_NPROC when several
+# workers spawn task servers in parallel (vast.ai, Docker, etc).
+_THREAD_CAPS = {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS":      "1",
+    "MKL_NUM_THREADS":      "1",
+    "NUMEXPR_NUM_THREADS":  "1",
+}
 
 
 @dataclass
@@ -36,7 +47,8 @@ def convert_one(pdf: Path, opts: Options, mineru_bin: str) -> ConversionResult:
         "-m", opts.method,
         "-l", opts.lang,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    env = {**os.environ, **_THREAD_CAPS}
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
     duration = round(time.time() - start, 1)
 
     if proc.returncode == 0:
