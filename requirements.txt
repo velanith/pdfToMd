@@ -11,4 +11,5 @@ accelerate
 shapely
 pyclipper
 albumentations
+ftfy
 tqdm

@@ -49,7 +49,7 @@ fi
 # declare in install_requires; without them the api-service crashes on
 # first PDF.
 echo "==> Installing MinerU + ML stack"
-pip install -q mineru "transformers<5" accelerate shapely pyclipper albumentations tqdm
+pip install -q mineru "transformers<5" accelerate shapely pyclipper albumentations ftfy tqdm
 
 # ── verify ────────────────────────────────────────────────────────────────────
 echo "==> Verifying"
