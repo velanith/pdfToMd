@@ -44,6 +44,15 @@ def setup_logging(log_file: Path | None = None) -> logging.Logger:
 _WORKER_MODE: str = "auto"
 _WORKER_CONVERT_FN = None   # cached reference to MinerU's convert function
 
+# Map our --mode values to mineru's -b/--backend CLI flag values.
+# mineru's -m/--method is a separate concept (auto|txt|ocr) for parse strategy
+# within the pipeline/hybrid backends; we always let it default to 'auto'.
+_BACKEND_MAP: dict[str, str] = {
+    "pipeline": "pipeline",
+    "vlm":      "vlm-auto-engine",
+    "auto":     "pipeline",   # pipeline is the most general/stable backend
+}
+
 
 def _worker_init(mode: str) -> None:
     global _WORKER_MODE, _WORKER_CONVERT_FN
@@ -78,7 +87,7 @@ def _convert_one(args: tuple) -> dict:
             md_text, _assets = _WORKER_CONVERT_FN(
                 str(pdf_path),
                 output_dir=str(pdf_out),
-                backend=_WORKER_MODE,
+                backend=_BACKEND_MAP.get(_WORKER_MODE, "pipeline"),
             )
             md_path = pdf_out / f"{pdf_path.stem}.md"
             md_path.write_text(md_text, encoding="utf-8")
@@ -98,9 +107,10 @@ def _convert_one(args: tuple) -> dict:
                 "error": "mineru CLI not found on PATH and Python API unavailable",
                 "duration": _elapsed()}
 
+    backend = _BACKEND_MAP.get(_WORKER_MODE, "pipeline")
     result = subprocess.run(
         [mineru_bin,
-         "-p", str(pdf_path), "-o", str(pdf_out), "-m", _WORKER_MODE],
+         "-p", str(pdf_path), "-o", str(pdf_out), "-b", backend],
         capture_output=True, text=True,
     )
     dur = _elapsed()
