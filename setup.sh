@@ -38,9 +38,8 @@ else
 fi
 
 # ── MinerU + ML stack ─────────────────────────────────────────────────────────
-# We install [full] for the pipeline backend, plus transformers/accelerate
-# explicitly because mineru's spawned api-service has historically failed to
-# resolve them through the extras alone.
+# transformers/accelerate installed explicitly because mineru's spawned
+# api-service has historically failed to resolve them through extras alone.
 echo "==> Installing MinerU + ML stack"
 pip install -q "mineru[full]" transformers accelerate tqdm
 
@@ -50,20 +49,23 @@ python - <<'PY'
 import shutil, sys
 
 def _line(label, value):
-    print(f"    {label:<10} {value}")
+    print(f"    {label:<14} {value}")
 
 import torch
-_line("python",  sys.version.split()[0])
-_line("torch",   torch.__version__)
-_line("CUDA",    torch.cuda.get_device_name(0) if torch.cuda.is_available() else "unavailable")
+_line("python",       sys.version.split()[0])
+_line("torch",        torch.__version__)
+_line("CUDA",         torch.cuda.get_device_name(0) if torch.cuda.is_available() else "unavailable")
 
 import mineru
-_line("mineru",  getattr(mineru, "__version__", "?"))
+_line("mineru",       getattr(mineru, "__version__", "?"))
 
 import transformers
 _line("transformers", transformers.__version__)
 
-_line("mineru CLI", shutil.which("mineru") or "NOT FOUND")
+_line("mineru CLI",   shutil.which("mineru") or "NOT FOUND")
+
+import med2md
+_line("med2md pkg",   f"v{med2md.__version__}")
 PY
 
 echo ""
@@ -71,4 +73,4 @@ echo "Setup complete."
 echo ""
 echo "Next:"
 echo "  source $VENV/bin/activate"
-echo "  python med2md.py -i ./papers/ -o ./output/"
+echo "  python -m med2md -i ./papers/ -o ./output/"

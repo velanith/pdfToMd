@@ -1,6 +1,6 @@
 # med2md
 
-MinerU ile PDF → Markdown toplu dönüştürücü. Tek GPU'lu makineler için.
+MinerU ile PDF → Markdown toplu dönüştürücü. Modüler Python package.
 
 ## Hızlı başlangıç
 
@@ -12,7 +12,7 @@ bash setup.sh
 source .venv/bin/activate
 
 # 3. Çalıştır
-python med2md.py -i ./papers/ -o ./output/
+python -m med2md -i ./papers/ -o ./output/
 ```
 
 `setup.sh` mevcut bir venv'i de kullanabilir:
@@ -23,17 +23,38 @@ CUDA=cu121 bash setup.sh      # farklı CUDA (default: cu124)
 CUDA=cpu   bash setup.sh      # GPU yoksa
 ```
 
+## Proje yapısı
+
+```
+.
+├── setup.sh                 # env kurulumu
+├── requirements.txt         # referans (setup.sh asıl yolu)
+├── med2md/                  # ana package
+│   ├── __init__.py
+│   ├── __main__.py          # python -m med2md
+│   ├── cli.py               # argparse + main
+│   ├── config.py            # Options dataclass + sabitler
+│   ├── log.py               # logger kurulumu
+│   ├── discovery.py         # mineru binary + PDF discovery
+│   ├── converter.py         # tek PDF dönüştürme
+│   ├── batch.py             # batch orkestrasyonu
+│   └── reporting.py         # JSON rapor + failed log
+└── README.md
+```
+
+Her modülün tek bir sorumluluğu var. CLI'dan bağımsız kullanmak için `med2md.batch.run_batch(opts, log)` doğrudan çağrılabilir.
+
 ## Kullanım
 
 ```bash
 # Tek PDF
-python med2md.py -i ./paper.pdf -o ./output/
+python -m med2md -i ./paper.pdf -o ./output/
 
 # Klasör (recursive)
-python med2md.py -i ./papers/ -o ./output/
+python -m med2md -i ./papers/ -o ./output/
 
 # Hepsi
-python med2md.py -i ./papers/ -o ./output/ \
+python -m med2md -i ./papers/ -o ./output/ \
     -b pipeline -m auto -l en \
     -j 3 \
     --failed-log failed.txt --log-file run.log
@@ -79,22 +100,39 @@ output/
 
 ```bash
 # İlk koşu — başarısızları kaydet
-python med2md.py -i ./papers/ -o ./output/ --failed-log failed.txt
+python -m med2md -i ./papers/ -o ./output/ --failed-log failed.txt
 
 # Sadece başarısızlar
-python med2md.py -i failed.txt -o ./output/ --no-skip
+python -m med2md -i failed.txt -o ./output/ --no-skip
 ```
 
 ## RTX 4090 (24 GB) için öneriler
 
 ```bash
 # Pipeline — 3 worker güvenli
-python med2md.py -i ./papers/ -o ./output/ -b pipeline -j 3
+python -m med2md -i ./papers/ -o ./output/ -b pipeline -j 3
 
 # VLM — 1 worker
-python med2md.py -i ./papers/ -o ./output/ -b vlm-auto-engine -j 1
+python -m med2md -i ./papers/ -o ./output/ -b vlm-auto-engine -j 1
 
 # OOM olursa worker düşür
+```
+
+## Python API olarak kullanım
+
+```python
+from pathlib import Path
+from med2md.batch import run_batch
+from med2md.config import Options
+from med2md.log import setup_logger
+
+opts = Options(
+    input_path=Path("./papers/"),
+    output_dir=Path("./output/"),
+    backend="pipeline",
+    workers=3,
+)
+exit_code = run_batch(opts, setup_logger())
 ```
 
 ## Sorun giderme
@@ -103,7 +141,7 @@ python med2md.py -i ./papers/ -o ./output/ -b vlm-auto-engine -j 1
 venv aktif değil. `source .venv/bin/activate` yap, sonra `which mineru` ile doğrula.
 
 **`No module named 'transformers'` (mineru service'den)**
-Eski bir mineru-api servisi arkada açık kalmış olabilir. Kapat ve tekrar dene:
+Eski bir mineru-api servisi arkada açık kalmış olabilir:
 ```bash
 pkill -f mineru-api || true
 ```
@@ -114,5 +152,5 @@ Worker sayısını düşür (`-j 1`) ya da `pipeline` backend'e geç.
 
 **Çıkış kodları**
 - `0` — hepsi başarılı
-- `1` — hiç PDF bulunamadı / yapılandırma hatası
+- `1` — hiç PDF bulunamadı / mineru bulunamadı
 - `2` — bazıları başarısız (`failed-log` dosyasına bak)
