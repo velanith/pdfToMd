@@ -50,11 +50,11 @@ def _worker_init(mode: str) -> None:
     _WORKER_MODE = mode
     try:
         from mineru.api import convert_pdf_to_markdown
-        # Trigger model load by converting a 0-byte dummy (MinerU lazy-loads on
-        # first call; this primes the cache so real PDFs start immediately).
         _WORKER_CONVERT_FN = convert_pdf_to_markdown
-    except Exception:
-        _WORKER_CONVERT_FN = None  # subprocess fallback will be used
+    except Exception as exc:
+        import warnings
+        warnings.warn(f"mineru Python API unavailable ({exc}); falling back to CLI", stacklevel=1)
+        _WORKER_CONVERT_FN = None
 
 
 # ── single-PDF converter ──────────────────────────────────────────────────────
@@ -89,10 +89,17 @@ def _convert_one(args: tuple) -> dict:
                     "error": str(exc), "duration": _elapsed()}
 
     # ── subprocess fallback (MinerU Python API not available) ────────────────
+    import shutil
     import subprocess
 
+    mineru_bin = shutil.which("mineru") or shutil.which("magic-pdf")
+    if not mineru_bin:
+        return {"file": pdf_path_str, "success": False,
+                "error": "mineru CLI not found on PATH and Python API unavailable",
+                "duration": _elapsed()}
+
     result = subprocess.run(
-        [sys.executable, "-m", "mineru",
+        [mineru_bin,
          "-p", str(pdf_path), "-o", str(pdf_out), "-m", _WORKER_MODE],
         capture_output=True, text=True,
     )
