@@ -1,0 +1,11 @@
+# For reference only — setup.sh is the canonical install path
+# because torch needs a CUDA-specific index URL.
+#
+# Manual install:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+#   pip install -r requirements.txt
+
+mineru[full]
+transformers
+accelerate
+tqdm

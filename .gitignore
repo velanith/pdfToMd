@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+output/
+papers/
+
+failed.txt
+run.log
+*.log
+
+.DS_Store
+.idea/
+.vscode/

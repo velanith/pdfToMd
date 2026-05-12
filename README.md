@@ -1,11 +1,26 @@
 # med2md
 
-Batch PDF → Markdown converter using MinerU, optimised for single-GPU machines.
+MinerU ile PDF → Markdown toplu dönüştürücü. Tek GPU'lu makineler için.
 
-## Kurulum
+## Hızlı başlangıç
 
 ```bash
-pip install mineru[full] tqdm
+# 1. Tek seferlik kurulum (.venv yaratır, torch + mineru + transformers kurar, doğrular)
+bash setup.sh
+
+# 2. venv'i aktif et
+source .venv/bin/activate
+
+# 3. Çalıştır
+python med2md.py -i ./papers/ -o ./output/
+```
+
+`setup.sh` mevcut bir venv'i de kullanabilir:
+
+```bash
+bash setup.sh /venv/main      # belirli bir path
+CUDA=cu121 bash setup.sh      # farklı CUDA (default: cu124)
+CUDA=cpu   bash setup.sh      # GPU yoksa
 ```
 
 ## Kullanım
@@ -17,79 +32,87 @@ python med2md.py -i ./paper.pdf -o ./output/
 # Klasör (recursive)
 python med2md.py -i ./papers/ -o ./output/
 
-# Tüm seçeneklerle
+# Hepsi
 python med2md.py -i ./papers/ -o ./output/ \
-    --mode pipeline \
-    --workers 3 \
-    --failed-log failed.txt \
-    --log-file run.log
+    -b pipeline -m auto -l en \
+    -j 3 \
+    --failed-log failed.txt --log-file run.log
 ```
 
 ## Argümanlar
 
 | Argüman | Default | Açıklama |
 |---|---|---|
-| `-i` / `--input` | — | PDF dosyası veya klasörü (recursive) |
+| `-i` / `--input` | — | PDF, klasör, ya da satır başına PDF path'i içeren text dosyası |
 | `-o` / `--output` | — | Çıktı klasörü |
-| `-m` / `--mode` | `auto` | MinerU modu: `auto`, `pipeline`, `vlm` |
-| `-w` / `--workers` | `3` | Paralel worker sayısı |
-| `--no-skip` | — | Zaten dönüştürülmüş dosyaları da yeniden işle |
-| `--failed-log` | — | Başarısız PDF path'lerini bu dosyaya yaz |
-| `--log-file` | — | Logları dosyaya da yaz |
+| `-b` / `--backend` | `pipeline` | `pipeline`, `vlm-auto-engine`, `hybrid-auto-engine` |
+| `-m` / `--method` | `auto` | `auto`, `txt`, `ocr` (pipeline/hybrid backend'leri için) |
+| `-l` / `--lang` | `en` | Doküman dili: `en`, `ch`, `japan`, `korean`, ... |
+| `-j` / `--workers` | `1` | Paralel işçi sayısı |
+| `--no-skip` | — | Zaten dönüştürülmüşleri de yeniden işle |
+| `--failed-log` | — | Başarısız PDF path'lerini yaz |
+| `--log-file` | — | Logları dosyaya yaz |
 
-## Modlar
+## Backend seçimi
 
-| Mod | Hız | Kalite | Ne zaman |
+| Backend | Hız | Kalite | Ne zaman |
 |---|---|---|---|
-| `pipeline` | En hızlı | İyi | Standart akademik makaleler |
-| `vlm` | Yavaş | En iyi | Karmaşık layout, yoğun formül |
-| `auto` | Orta | İyi | MinerU karar verir |
+| `pipeline` | En hızlı | İyi | Standart akademik PDF'ler |
+| `vlm-auto-engine` | Yavaş | En iyi | Karmaşık layout, denklem ağırlıklı |
+| `hybrid-auto-engine` | Orta | Çok iyi | Pipeline + VLM birlikte |
 
-## Çıktı Yapısı
+## Çıktı
 
 ```
 output/
 ├── paper_a/
 │   ├── paper_a.md
-│   └── figures/
+│   └── images/
 ├── paper_b/
 │   └── paper_b.md
 └── conversion_report.json
 ```
 
-`conversion_report.json` içeriği: timestamp, toplam/başarılı/başarısız sayısı, PDF başına süre, PDF/dakika throughput.
+`conversion_report.json` her koşunun tam özetini içerir: timestamp, backend, başarılı/başarısız listesi, PDF başına süre.
 
-## vast.ai / RTX 4090 Önerileri
-
-```bash
-# Pipeline modu — 24 GB VRAM'da 3 worker güvenli
-python med2md.py -i ~/papers/ -o ~/output/ --mode pipeline --workers 3
-
-# VLM modu — worker düşür
-python med2md.py -i ~/papers/ -o ~/output/ --mode vlm --workers 1
-
-# OOM alırsan
-python med2md.py -i ~/papers/ -o ~/output/ --workers 2
-```
-
-Dosyaları vast.ai'ya aktarma:
+## Başarısızları tekrar çalıştırma
 
 ```bash
-rsync -avz ./papers/ root@<host>:~/papers/
+# İlk koşu — başarısızları kaydet
+python med2md.py -i ./papers/ -o ./output/ --failed-log failed.txt
+
+# Sadece başarısızlar
+python med2md.py -i failed.txt -o ./output/ --no-skip
 ```
 
-İşlem bittikten sonra çıktıyı indirme:
+## RTX 4090 (24 GB) için öneriler
 
 ```bash
-rsync -avz root@<host>:~/output/ ./output/
+# Pipeline — 3 worker güvenli
+python med2md.py -i ./papers/ -o ./output/ -b pipeline -j 3
+
+# VLM — 1 worker
+python med2md.py -i ./papers/ -o ./output/ -b vlm-auto-engine -j 1
+
+# OOM olursa worker düşür
 ```
 
-## Başarısız Dosyaları Yeniden İşleme
+## Sorun giderme
 
+**`mineru CLI not found on PATH`**
+venv aktif değil. `source .venv/bin/activate` yap, sonra `which mineru` ile doğrula.
+
+**`No module named 'transformers'` (mineru service'den)**
+Eski bir mineru-api servisi arkada açık kalmış olabilir. Kapat ve tekrar dene:
 ```bash
-# İlk çalıştırma — başarısızları kaydet
-python med2md.py -i ~/papers/ -o ~/output/ --failed-log failed.txt
-
-# Retry — sadece başarısızlar
-python med2md.py -i failed.txt -o ~/output/ --no-skip
+pkill -f mineru-api || true
 ```
+Hâlâ olursa `bash setup.sh` ile bağımlılıkları yeniden kur.
+
+**`CUDA out of memory`**
+Worker sayısını düşür (`-j 1`) ya da `pipeline` backend'e geç.
+
+**Çıkış kodları**
+- `0` — hepsi başarılı
+- `1` — hiç PDF bulunamadı / yapılandırma hatası
+- `2` — bazıları başarısız (`failed-log` dosyasına bak)
