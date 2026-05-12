@@ -12,4 +12,5 @@ shapely
 pyclipper
 albumentations
 ftfy
+omegaconf
 tqdm
