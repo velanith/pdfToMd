@@ -43,10 +43,11 @@ fi
 
 # ── MinerU + ML stack ─────────────────────────────────────────────────────────
 # mineru 3.x bundles everything in the base package (no [full] extra exists).
-# transformers/accelerate pinned explicitly because mineru's spawned api-service
-# has historically failed to resolve them through transitive deps alone.
+# transformers / accelerate / shapely / pyclipper are pinned explicitly because
+# mineru's pipeline backend imports them at runtime but doesn't declare them
+# as install_requires, so the spawned api-service blows up on first PDF.
 echo "==> Installing MinerU + ML stack"
-pip install -q mineru transformers accelerate tqdm
+pip install -q mineru transformers accelerate shapely pyclipper tqdm
 
 # ── verify ────────────────────────────────────────────────────────────────────
 echo "==> Verifying"

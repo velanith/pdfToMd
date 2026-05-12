@@ -8,4 +8,6 @@
 mineru
 transformers
 accelerate
+shapely
+pyclipper
 tqdm

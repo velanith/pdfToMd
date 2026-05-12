@@ -1,5 +1,7 @@
 """Single-PDF conversion via the mineru CLI."""
 
+import json
+import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -46,10 +48,30 @@ def convert_one(pdf: Path, opts: Options, mineru_bin: str) -> ConversionResult:
             md_path=str(md_files[0]) if md_files else None,
         )
 
-    err = (proc.stderr or proc.stdout).strip() or "unknown error"
+    raw = (proc.stderr or proc.stdout).strip() or "unknown error"
     return ConversionResult(
         file=str(pdf),
         success=False,
         duration=duration,
-        error=err[-600:],
+        error=_extract_error(raw),
     )
+
+
+_JSON_ERROR_RE = re.compile(r'\{[^{}]*"task_id"[^{}]*\}')
+
+
+def _extract_error(raw: str) -> str:
+    """Pull the meaningful error out of mineru's verbose CLI output.
+
+    mineru wraps real failures inside a task-status JSON blob; the useful
+    field is `error`. Fall back to the tail of stderr when no JSON is found.
+    """
+    for match in _JSON_ERROR_RE.findall(raw):
+        try:
+            payload = json.loads(match)
+        except json.JSONDecodeError:
+            continue
+        msg = payload.get("error")
+        if msg:
+            return f"{msg}  (task {payload.get('task_id', '?')[:8]})"
+    return raw[-400:]
