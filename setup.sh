@@ -11,6 +11,10 @@ set -euo pipefail
 VENV="${1:-.venv}"
 CUDA="${CUDA:-cu124}"
 
+# Suppress the "running pip as root" nag — common in containers/vast.ai.
+export PIP_ROOT_USER_ACTION=ignore
+export PIP_DISABLE_PIP_VERSION_CHECK=1
+
 echo "==> Setup"
 echo "    venv: $VENV"
 echo "    CUDA: $CUDA"
@@ -38,10 +42,11 @@ else
 fi
 
 # ── MinerU + ML stack ─────────────────────────────────────────────────────────
-# transformers/accelerate installed explicitly because mineru's spawned
-# api-service has historically failed to resolve them through extras alone.
+# mineru 3.x bundles everything in the base package (no [full] extra exists).
+# transformers/accelerate pinned explicitly because mineru's spawned api-service
+# has historically failed to resolve them through transitive deps alone.
 echo "==> Installing MinerU + ML stack"
-pip install -q "mineru[full]" transformers accelerate tqdm
+pip install -q mineru transformers accelerate tqdm
 
 # ── verify ────────────────────────────────────────────────────────────────────
 echo "==> Verifying"
@@ -56,8 +61,9 @@ _line("python",       sys.version.split()[0])
 _line("torch",        torch.__version__)
 _line("CUDA",         torch.cuda.get_device_name(0) if torch.cuda.is_available() else "unavailable")
 
-import mineru
-_line("mineru",       getattr(mineru, "__version__", "?"))
+from importlib.metadata import version as _pkg_version
+import mineru  # noqa: F401  (verify importable)
+_line("mineru",       _pkg_version("mineru"))
 
 import transformers
 _line("transformers", transformers.__version__)
