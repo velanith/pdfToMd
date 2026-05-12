@@ -10,4 +10,5 @@ transformers<5
 accelerate
 shapely
 pyclipper
+albumentations
 tqdm
